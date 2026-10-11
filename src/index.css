@@ -89,38 +89,36 @@
 	--ring: oklch(0.68 0.15 155);
 }
 
-/* Dark — the app: near-black ground, pale spring-mint accent. */
+/* Dark — Catppuccin Frappé; green is the accent, big areas stay on base/mantle. */
 .dark {
-	--background: oklch(0.135 0.003 160);
-	--foreground: oklch(0.97 0.004 150);
+	--background: #303446; /* base */
+	--foreground: #c6d0f5; /* text */
 
-	--card: oklch(0.165 0.004 160);
-	--card-foreground: oklch(0.97 0.004 150);
-	--surface: oklch(0.205 0.005 160);
+	--card: #414559; /* surface0 */
+	--card-foreground: #c6d0f5;
+	--surface: #292c3c; /* mantle */
 
-	--popover: oklch(0.18 0.005 160);
-	--popover-foreground: oklch(0.97 0.004 150);
+	--popover: #292c3c;
+	--popover-foreground: #c6d0f5;
 
-	/* the FAB / active-tab / accent mint from the screenshots */
-	--primary: oklch(0.9 0.13 159);
-	--primary-foreground: oklch(0.19 0.03 160);
+	--primary: #a6d189; /* brand green */
+	--primary-foreground: #232634; /* crust */
 
-	--secondary: oklch(0.22 0.008 160);
-	--secondary-foreground: oklch(0.97 0.004 150);
+	--secondary: #414559;
+	--secondary-foreground: #c6d0f5;
 
-	--muted: oklch(0.22 0.007 160);
-	--muted-foreground: oklch(0.63 0.008 160);
+	--muted: #414559;
+	--muted-foreground: #b5bfe2; /* subtext1 */
 
-	--accent: oklch(0.25 0.05 159);
-	--accent-foreground: oklch(0.9 0.13 159);
+	--accent: #414559;
+	--accent-foreground: #a6d189;
 
-	/* app income green — brighter and more saturated than the control mint */
-	--positive: oklch(0.8 0.18 153);
-	--negative: oklch(0.68 0.21 22);
+	--positive: #a6d189;
+	--negative: #e78284;
 
-	--border: oklch(0.26 0.006 160);
-	--input: oklch(0.26 0.006 160);
-	--ring: oklch(0.9 0.13 159);
+	--border: #51576d; /* surface1 */
+	--input: #51576d;
+	--ring: #a6d189;
 }
 
 @layer base {
