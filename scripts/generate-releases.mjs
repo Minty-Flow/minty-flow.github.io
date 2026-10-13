@@ -37,14 +37,17 @@ async function fetchReleases() {
 
 const releases = await fetchReleases();
 if (releases) {
-	// Trim to the fields the page uses to keep the payload small.
-	const slim = releases.map((r) => ({
-		tag_name: r.tag_name,
-		name: r.name,
-		published_at: r.published_at,
-		body: r.body,
-		html_url: r.html_url,
-	}));
+	// gh is authenticated as a maintainer, so the API also returns unpublished
+	// drafts — drop them. Then trim to the fields the page uses.
+	const slim = releases
+		.filter((r) => !r.draft)
+		.map((r) => ({
+			tag_name: r.tag_name,
+			name: r.name,
+			published_at: r.published_at,
+			body: r.body,
+			html_url: r.html_url,
+		}));
 	writeFileSync(out, JSON.stringify(slim), "utf-8");
 	console.log(`✓ releases.json (${slim.length} releases)`);
 }
