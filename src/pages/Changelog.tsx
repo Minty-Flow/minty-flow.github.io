@@ -1,5 +1,6 @@
 import {
 	Check,
+	ChevronDown,
 	Copy,
 	ExternalLink,
 	GitCommit,
@@ -15,7 +16,8 @@ import { useSEO } from "@/hooks/useSEO";
 import { cn } from "@/lib/utils";
 
 type ChangeType = "new" | "improved" | "fixed";
-type FilterType = "all" | ChangeType;
+const CHANGE_ORDER: ChangeType[] = ["new", "improved", "fixed"];
+const INITIAL_VISIBLE = 3;
 
 interface Change {
 	type: ChangeType;
@@ -61,23 +63,11 @@ async function fetchReleases(): Promise<GitHubRelease[]> {
 
 const TYPE_META: Record<
 	ChangeType,
-	{ label: string; pill: string; icon: typeof Plus }
+	{ label: string; tone: string; icon: typeof Plus }
 > = {
-	new: {
-		label: "New",
-		pill: "bg-primary/10 text-primary ring-primary/20",
-		icon: Plus,
-	},
-	improved: {
-		label: "Improved",
-		pill: "bg-muted text-foreground/75 ring-border",
-		icon: Sparkles,
-	},
-	fixed: {
-		label: "Fixed",
-		pill: "bg-muted text-muted-foreground ring-border",
-		icon: Wrench,
-	},
+	new: { label: "New", tone: "text-primary", icon: Plus },
+	improved: { label: "Improved", tone: "text-foreground/75", icon: Sparkles },
+	fixed: { label: "Fixed", tone: "text-muted-foreground", icon: Wrench },
 };
 
 function escapeRegex(s: string) {
@@ -246,28 +236,37 @@ function ReleaseEntry({
 			)}
 
 			{release.changes.length > 0 && (
-				<ul className="mt-6 flex flex-col gap-2.5 rounded-2xl border border-border/60 bg-card/60 p-5 backdrop-blur">
-					{release.changes.map((c, j) => {
-						const meta = TYPE_META[c.type];
+				<div className="mt-6 flex flex-col gap-5">
+					{CHANGE_ORDER.map((type) => {
+						const items = release.changes.filter((c) => c.type === type);
+						if (items.length === 0) return null;
+						const meta = TYPE_META[type];
 						const Icon = meta.icon;
 						return (
-							<li key={j.toString()} className="flex items-start gap-3 text-sm">
-								<span
+							<section key={type}>
+								<h4
 									className={cn(
-										"mt-0.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium uppercase tracking-wider ring-1 shrink-0",
-										meta.pill,
+										"flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider",
+										meta.tone,
 									)}
 								>
-									<Icon className="size-2.5" />
+									<Icon className="size-3" />
 									{meta.label}
-								</span>
-								<span className="leading-relaxed text-foreground/85">
-									<Highlight text={c.text} query={query} />
-								</span>
-							</li>
+								</h4>
+								<ul className="mt-2 flex flex-col gap-1.5 border-l border-border/60 pl-4">
+									{items.map((c, j) => (
+										<li
+											key={j.toString()}
+											className="text-sm leading-relaxed text-foreground/85"
+										>
+											<Highlight text={c.text} query={query} />
+										</li>
+									))}
+								</ul>
+							</section>
 						);
 					})}
-				</ul>
+				</div>
 			)}
 		</article>
 	);
@@ -277,7 +276,7 @@ export function Changelog() {
 	const [releases, setReleases] = useState<Release[] | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [query, setQuery] = useState("");
-	const [activeFilter, setActiveFilter] = useState<FilterType>("all");
+	const [showAll, setShowAll] = useState(false);
 	const [copiedVersion, setCopiedVersion] = useState<string | null>(null);
 
 	useSEO({
@@ -303,32 +302,21 @@ export function Changelog() {
 		};
 	}, []);
 
-	// React Compiler handles memoization; plain expressions are fine here.
-	const typeCounts = (() => {
-		if (!releases) return { new: 0, improved: 0, fixed: 0, all: 0 };
-		const counts = { new: 0, improved: 0, fixed: 0 };
-		for (const r of releases) {
-			for (const c of r.changes) counts[c.type]++;
-		}
-		return { ...counts, all: counts.new + counts.improved + counts.fixed };
-	})();
-
-	const filteredReleases = (releases ?? []).filter((r) => {
-		if (
-			activeFilter !== "all" &&
-			!r.changes.some((c) => c.type === activeFilter)
-		)
-			return false;
-		if (query.trim()) {
-			const q = query.toLowerCase();
-			return (
-				r.title.toLowerCase().includes(q) ||
-				r.description.toLowerCase().includes(q) ||
-				r.changes.some((c) => c.text.toLowerCase().includes(q))
-			);
-		}
-		return true;
+	const searching = query.trim() !== "";
+	const matchingReleases = (releases ?? []).filter((r) => {
+		if (!searching) return true;
+		const q = query.toLowerCase();
+		return (
+			r.title.toLowerCase().includes(q) ||
+			r.description.toLowerCase().includes(q) ||
+			r.changes.some((c) => c.text.toLowerCase().includes(q))
+		);
 	});
+	const visibleReleases =
+		searching || showAll
+			? matchingReleases
+			: matchingReleases.slice(0, INITIAL_VISIBLE);
+	const hiddenCount = matchingReleases.length - visibleReleases.length;
 
 	function copyLink(url: string, version: string) {
 		navigator.clipboard
@@ -343,13 +331,6 @@ export function Changelog() {
 			.catch(() => {});
 	}
 
-	const filters: { key: FilterType; label: string; count: number }[] = [
-		{ key: "all", label: "All", count: typeCounts.all },
-		{ key: "new", label: "New", count: typeCounts.new },
-		{ key: "improved", label: "Improved", count: typeCounts.improved },
-		{ key: "fixed", label: "Fixed", count: typeCounts.fixed },
-	];
-
 	return (
 		<main className="mx-auto max-w-4xl px-5 sm:px-6">
 			<section className="max-w-2xl pt-14 md:pt-20">
@@ -363,8 +344,8 @@ export function Changelog() {
 
 			<section className="pb-24 pt-10">
 				{/* Controls */}
-				<div className="sticky top-20 z-10 -mx-2 mb-10 flex flex-col gap-3 rounded-[1.125rem] border border-border bg-card/85 p-2 backdrop-blur sm:mx-0 sm:flex-row sm:items-center sm:justify-between sm:p-3">
-					<div className="relative w-full sm:max-w-xs">
+				<div className="sticky top-20 z-10 -mx-2 mb-10 rounded-[1.125rem] border border-border bg-card/85 p-2 backdrop-blur sm:mx-0 sm:p-3">
+					<div className="relative w-full">
 						<Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
 						<input
 							type="text"
@@ -383,30 +364,6 @@ export function Changelog() {
 								<X className="size-3.5" />
 							</button>
 						)}
-					</div>
-
-					<div className="flex flex-wrap items-center gap-1">
-						{filters.map(({ key, label, count }) => {
-							const active = activeFilter === key;
-							return (
-								<button
-									type="button"
-									key={key}
-									onClick={() => setActiveFilter(key)}
-									className={cn(
-										"inline-flex cursor-pointer items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors duration-150",
-										active
-											? "bg-primary text-primary-foreground"
-											: "text-muted-foreground hover:bg-surface hover:text-foreground",
-									)}
-								>
-									{label}
-									<span className={cn("tabular-nums", !active && "opacity-60")}>
-										{count}
-									</span>
-								</button>
-							);
-						})}
 					</div>
 				</div>
 
@@ -460,36 +417,24 @@ export function Changelog() {
 					)}
 
 					{/* Empty */}
-					{releases && filteredReleases.length === 0 && (
+					{releases && matchingReleases.length === 0 && (
 						<div className="rounded-2xl border border-border/60 bg-card/60 py-16 text-center backdrop-blur">
 							<p className="text-sm text-muted-foreground">
-								{query.trim() ? (
-									<>
-										No releases match{" "}
-										<span className="text-foreground">"{query}"</span>.
-									</>
-								) : (
-									<>
-										No <span className="text-foreground">{activeFilter}</span>{" "}
-										changes in any release yet.
-									</>
-								)}
+								No releases match{" "}
+								<span className="text-foreground">"{query}"</span>.
 							</p>
 							<button
 								type="button"
-								onClick={() => {
-									setQuery("");
-									setActiveFilter("all");
-								}}
+								onClick={() => setQuery("")}
 								className="mt-3 cursor-pointer text-xs text-foreground underline-offset-4 hover:underline"
 							>
-								Clear filters
+								Clear search
 							</button>
 						</div>
 					)}
 
 					{/* Entries */}
-					{filteredReleases.map((release) => (
+					{visibleReleases.map((release) => (
 						<ReleaseEntry
 							key={release.version}
 							release={release}
@@ -499,6 +444,20 @@ export function Changelog() {
 							onCopy={() => copyLink(release.url, release.version)}
 						/>
 					))}
+
+					{hiddenCount > 0 && (
+						<div className="pl-10 pb-14">
+							<button
+								type="button"
+								onClick={() => setShowAll(true)}
+								className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-border/60 bg-card/70 px-4 py-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
+							>
+								<ChevronDown className="size-3" />
+								Show {hiddenCount} older{" "}
+								{hiddenCount === 1 ? "release" : "releases"}
+							</button>
+						</div>
+					)}
 				</div>
 
 				{releases && releases.length > 0 && (
